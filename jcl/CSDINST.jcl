@@ -1,0 +1,9 @@
+//IBMUSER JOB (ACCOUNT),'INSTALL CSD',CLASS=A,MSGCLASS=X,NOTIFY=&SYSUID
+//*------------------------------------------------------------------*
+//* UPDATE CICS CSD RESSOURCES FOR ZSMSGATEWAY
+//*------------------------------------------------------------------*
+//UPDATE   EXEC PGM=DFHCSDUP,REGION=0M
+//STEPLIB  DD DSN=DFH520.CICS.SDFHLOAD,DISP=SHR
+//DFHCSD   DD DSN=CICS520.DFHCSD,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN    DD DSN=IBMUSER.CICS(ZSMSCSD),DISP=SHR

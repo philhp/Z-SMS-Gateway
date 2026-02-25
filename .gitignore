@@ -1,0 +1,19 @@
+# --- Secrets et Configurations Locales ---
+# On ignore le copybook qui contient les REPLACE (mots de passe)
+*ZSMSPWD*
+
+# --- La documentation ---
+doc/
+
+# --- Fichiers shell MacOS ---
+*.sh
+
+# --- Fichiers de Listing et Logs ---
+# Les résultats de compilation contiennent souvent des infos système
+*.log
+*.yaml
+
+# --- Fichiers temporaires de transfert ---
+# Si tu utilises FTP ou Zowe pour sortir les sources vers ton PC
+*.tmp
+.DS_Store
