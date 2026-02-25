@@ -1,19 +1,19 @@
 # --- Secrets et Configurations Locales ---
-# On ignore le copybook qui contient les REPLACE (mots de passe)
+# Ignore the copybook containing REPLACE statements (passwords/credentials)
 *ZSMSPWD*
 
-# --- La documentation ---
+# Exclude local documentation folder
 doc/
 
-# --- Fichiers shell MacOS ---
+# Exclude MacOS Shell Files
 *.sh
 
-# --- Fichiers de Listing et Logs ---
-# Les résultats de compilation contiennent souvent des infos système
+# --- Listings and Logs ---
+# Compiler outputs and logs often contain sensitive system information
 *.log
 *.yaml
 
-# --- Fichiers temporaires de transfert ---
-# Si tu utilises FTP ou Zowe pour sortir les sources vers ton PC
+# --- Temporary Transfer Files ---
+# Exclude system-specific and transfer-related temporary files (FTP/Zowe)
 *.tmp
 .DS_Store
