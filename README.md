@@ -1,9 +1,11 @@
+```text
       ____  __  __ ____   ____       _                           
  ____/ ___||  \/  / ___| / ___| __ _| |_ _____      ____ _ _   _ 
 |_  /\___ \| |\/| \___ \| |  _ / _` | __/ _ \ \ /\ / / _` | | | |
  / /  ___) | |  | |___) | |_| | (_| | ||  __/\ V  V / (_| | |_| |
 /___||____/|_|  |_|____/ \____|\__,_|\__\___| \_/\_/ \__,_|\__, |
-                                                           |___/ 
+                                                           |___/
+```
 
 ## Z-SMS-Gateway is a REST API developed in COBOL for CICS TS. It bridges the gap between modern SMS platforms and the legendary transactional power of z/OS.
 
