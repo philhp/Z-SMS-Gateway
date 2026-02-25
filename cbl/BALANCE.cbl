@@ -3,7 +3,7 @@
        DATA DIVISION.
        WORKING-STORAGE SECTION.
       *---------------------------------------------------------------*
-      * zSMSGateway - POST /messages handler
+      * zSMSGateway - GET /balance handler
       *---------------------------------------------------------------*
 
        01  WS-CHARS.
@@ -14,19 +14,19 @@
 
        01 WS-STATUSTXT PIC X(32) VALUE SPACES.
 
-       01  WS-JSON-RESPONSE      PIC X(1000) VALUE SPACES.
-       01  WS-JSON-LEN           PIC 9(04) BINARY.
+       01  WS-JSON-RESPONSE     PIC X(1000) VALUE SPACES.
+       01  WS-JSON-LEN          PIC 9(04) BINARY.
        01  WS-PTR               PIC S9(9) BINARY VALUE 1.
 
-       01 WS-USERID-NAME         PIC X(10)  VALUE 'UserID'.
-       01 WS-USERID-LEN          PIC S9(8)  COMP VALUE 6.
+       01 WS-USERID-NAME        PIC X(10)  VALUE 'UserID'.
+       01 WS-USERID-LEN         PIC S9(8)  COMP VALUE 6.
        01 WS-USERID-VAL         PIC X(10)  VALUE SPACES.
-       01 WS-VAL-LEN            PIC S9(8)  COMP.
+       01 WS-VAL-LEN            PIC S9(8)  BINARY.
 
-       01  WS-RESP               PIC S9(8) COMP.
-       01  WS-RESP-DISP          PIC 9(6). 
+       01  WS-RESP              PIC S9(8) BINARY.
+       01  WS-RESP-DISP         PIC 9(6). 
 
-       01  WS-NBSMS-DIS          PIC 9999.
+       01  WS-NBSMS-DIS         PIC 9999.
 
        01  WS-AMOUNT-DISP       PIC ZZZZ9.
 
@@ -34,7 +34,7 @@
 
 
        01 DB2-VARS.
-          05 D-USER-ID      PIC S9(9) BINARY VALUE 0.
+          05 D-USER-ID          PIC S9(9) BINARY VALUE 0.
           05 D-CREDIT-AMOUNT    PIC S9(9) BINARY.
 
 
@@ -74,7 +74,7 @@
                  WHERE USER_ID = :D-USER-ID
            END-EXEC.
 
-      * -- 1. OUVERTURE DU CURSEUR
+      * -- 1. Opening Cursor
            EXEC SQL OPEN C1 END-EXEC.
 
            MOVE 1 TO WS-PTR
@@ -86,7 +86,7 @@
            INTO WS-JSON-RESPONSE 
            WITH POINTER WS-PTR
 
-      * -- 2. BOUCLE DE LECTURE
+      * -- 2. Loop
            PERFORM UNTIL SQLCODE NOT = 0
                EXEC SQL
                    FETCH C1 
@@ -126,7 +126,7 @@
            PERFORM SEND-JSON-RESPONSE
 
 
-      * -- 3. FERMETURE
+      * -- 3. Closing cursor
            EXEC SQL CLOSE C1 END-EXEC.
 
            *> Send JSON Message depending on Status

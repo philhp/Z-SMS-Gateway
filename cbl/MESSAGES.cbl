@@ -20,7 +20,7 @@
        01  WS-BODY-BRUT          PIC X(2000).
        01  WS-BODY-LEN           PIC S9(8) BINARY VALUE 2000.
        01  WS-BODY-LEN-RECV      PIC S9(8) BINARY.
-       01  WS-RESP               PIC S9(8) COMP.
+       01  WS-RESP               PIC S9(8) BINARY.
        01  WS-RESP-DISP          PIC --------9. 
 
        01  WS-FIELDS.
@@ -121,7 +121,6 @@
                MAXLENGTH(WS-BODY-LEN)
                LENGTH(WS-BODY-LEN-RECV) 
                NOTRUNCATE
-               *> On ne précise aucun CODEPAGE ici
                RESP(WS-RESP)
            END-EXEC.
 
@@ -194,7 +193,7 @@
                             DFHCOMMAREA 
                             WS-SMS-ZONE.
 
-      * -- PREPARATION DES DONNEES
+      * -- Preparation data to DB2 access
            MOVE WS-SMS-TEL TO D-PHONE
            MOVE WS-SMS-RET TO D-STATUS        
 
