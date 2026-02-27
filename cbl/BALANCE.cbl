@@ -64,6 +64,8 @@
 
            DISPLAY 'BALANCE FOR USERID:' WS-USERID-VAL(1:WS-USERID-LEN)
 
+
+
            COMPUTE D-USER-ID = FUNCTION NUMVAL(WS-USERID-VAL)
            
            EXEC SQL

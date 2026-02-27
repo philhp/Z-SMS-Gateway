@@ -41,12 +41,18 @@
            05 WS-OUT-NBSMS    PIC X(10) VALUE SPACES.
            05 WS-SMS-RET      PIC S9(8) BINARY.
 
+       01  WS-BULK-WORK.
+           05  WS-PTR-DA           PIC 9(05) VALUE 1.
+           05  WS-CURRENT-TEL      PIC X(20) VALUE SPACES.
+           05  WS-DA-DELIM         PIC X(02).
+
        01 DB2-VARS.
-          05 D-USER-ID      PIC S9(9) BINARY VALUE 1.
-          05 D-MSG-ID       PIC S9(18) BINARY.
-          05 D-PHONE        PIC X(20).
-          05 D-NB-SMS       PIC S9(9) BINARY.
-          05 D-STATUS       PIC S9(9) BINARY.          
+          05 D-USER-ID       PIC S9(9) BINARY VALUE 1.
+          05 D-MSG-ID        PIC S9(18) BINARY.
+          05 D-PHONE         PIC X(20).
+          05 D-NB-SMS        PIC S9(9) BINARY.
+          05 D-STATUS        PIC S9(9) BINARY.
+          05 D-CREDIT-AMOUNT PIC S9(9) BINARY.       
           *> STRUCTURE POUR LE VARCHAR(1000)
           05 D-MSG-TEXT.
              49 D-MSG-TEXT-LEN  PIC S9(4) BINARY.
@@ -64,14 +70,16 @@
        01  WS-PARSING-WORK.
            05 WS-PTR-PARSE         PIC 9(05) VALUE 1.
            05 WS-CURRENT-KV        PIC X(500) VALUE SPACES.
-           05 WS-KV-LEN            PIC 9(03) VALUE 0.
+           05 WS-KV-LEN            PIC 9(05) VALUE 0.
            05 WS-KEY               PIC X(20) VALUE SPACES.
            05 WS-VALUE             PIC X(480) VALUE SPACES.
        01  WS-PARSING-RESULTS.
-           05 WS-RES-DA            PIC X(10) VALUE SPACES.
-           05 WS-RES-DA-LEN        PIC 9(03) VALUE 0. 
+           05 WS-RES-DA            PIC X(16000) VALUE SPACES.
+           05 WS-RES-DA-LEN        PIC 9(05) VALUE 0. 
            05 WS-RES-CONTENT       PIC X(500) VALUE SPACES.
-           05 WS-RES-CONTENT-LEN   PIC 9(03) VALUE 0.
+           05 WS-RES-CONTENT-LEN   PIC 9(05) VALUE 0.
+           05 WS-RES-USERID        PIC X(10) VALUE SPACES.
+           05 WS-RES-USERID-LEN    PIC 9(05) VALUE 0.
 
       * ASCII Table (ISO_8859-1)   
        01  WS-CONV-DATA.
@@ -126,7 +134,7 @@
 
            IF WS-RESP NOT = DFHRESP(NORMAL)
                MOVE WS-RESP TO WS-RESP-DISP
-               DISPLAY 'ERROR : CICS WEB RECEIVE: '
+               DISPLAY 'ERROR : CICS WEB RECEIVE: ' WS-RESP-DISP
 
                PERFORM SEND-JSON-ERROR
 
@@ -179,59 +187,72 @@
                            MOVE WS-VALUE TO WS-RES-CONTENT
                            *> Payload calcul 
                            COMPUTE WS-RES-CONTENT-LEN = WS-KV-LEN - 8
+                    WHEN WS-KEY(1:7) = 'UserID'
+                           MOVE WS-VALUE TO WS-RES-USERID
+                           *> Payload calcul 
+                           COMPUTE WS-RES-USERID-LEN = WS-KV-LEN - 7
                  END-EVALUATE
 
            END-PERFORM.
 
            DISPLAY 'RES-DA:' WS-RES-DA(1:WS-RES-DA-LEN)
            DISPLAY 'RES-CNT:' WS-RES-CONTENT(1:WS-RES-CONTENT-LEN)
+           DISPLAY 'RES-USERID:' WS-RES-USERID(1:WS-RES-USERID-LEN)
+      * Check that Content AND UserID AND DA are present
+           IF WS-RES-DA-LEN = 0 OR 
+              WS-RES-CONTENT-LEN = 0 OR 
+              WS-RES-USERID-LEN = 0
 
-           *> Send the SMS
-           MOVE   WS-RES-CONTENT TO WS-SMS-TXT.
-           MOVE   WS-RES-DA TO WS-SMS-TEL.
-           CALL 'SENDSMS' USING DFHEIBLK 
-                            DFHCOMMAREA 
-                            WS-SMS-ZONE.
-
-      * -- Preparation data to DB2 access
-           MOVE WS-SMS-TEL TO D-PHONE
-           MOVE WS-SMS-RET TO D-STATUS        
-
-           IF WS-SMS-RET = 0 
-              *> IF SMS IS SENDED
-              COMPUTE D-NB-SMS = FUNCTION NUMVAL(WS-OUT-NBSMS)
-              COMPUTE D-MSG-ID = FUNCTION NUMVAL(WS-OUT-MSGID)
-           ELSE
-              MOVE 0 TO D-NB-SMS
-              MOVE 0 TO D-MSG-ID
+               DISPLAY "MANDATORY FIELD IS MISSING"
+               MOVE 16 TO WS-RESP 
+               PERFORM SEND-JSON-ERROR
+               EXEC CICS RETURN END-EXEC          
            END-IF.
 
-      * -- GESTION DU VARCHAR 
-           MOVE WS-SMS-TXT TO D-MSG-TEXT-DATA
-           MOVE WS-RES-CONTENT-LEN TO D-MSG-TEXT-LEN
 
-      * -- EXECUTION DE L INSERT
-           EXEC SQL
-             INSERT INTO ZSMS_MESSAGES (
-                MSG_ID,
-                USER_ID,
-                PHONE_NUM,
-                MSG_TEXT,
-                NB_SMS,
-                STATUS
-             ) VALUES (
-                :D-MSG-ID,
-                :D-USER-ID,
-                :D-PHONE,
-                :D-MSG-TEXT,
-                :D-NB-SMS,
-                :D-STATUS
-             )
-           END-EXEC.
+           DISPLAY 'WS-RES-DA-LEN: ' WS-RES-DA-LEN
+           DISPLAY 'WS-RES-CONTENT-LEN: ' WS-RES-CONTENT-LEN
+           DISPLAY 'WS-RES-USERID-LEN: ' WS-RES-USERID-LEN
 
-           MOVE SQLCODE TO WS-RESP-DISP
+      *Bulk messaging : multi-recipient SMS sending
+           MOVE 1 TO WS-PTR-DA.
 
-           DISPLAY 'SQLCODE: ' WS-RESP-DISP
+           PERFORM UNTIL WS-PTR-DA > WS-RES-DA-LEN
+                INITIALIZE WS-CURRENT-TEL
+                *> Split on %0D%0A 
+                UNSTRING WS-RES-DA(1:WS-RES-DA-LEN)
+                   DELIMITED BY '%0D%0A'
+                   INTO WS-CURRENT-TEL
+                   WITH POINTER WS-PTR-DA
+                END-UNSTRING
+
+                IF WS-CURRENT-TEL NOT = SPACES
+
+                    PERFORM CHECK-USER-CREDIT
+
+                    DISPLAY 'SENDING TO: ' WS-CURRENT-TEL
+
+                    *> Send the SMS
+                    MOVE   WS-RES-CONTENT TO WS-SMS-TXT
+                    MOVE   WS-CURRENT-TEL TO WS-SMS-TEL
+                    CALL 'SENDSMS' USING DFHEIBLK 
+                                       DFHCOMMAREA 
+                                       WS-SMS-ZONE
+
+                    *> Log sent SMS data to DB2
+                    PERFORM SAVE-SMS-HISTORY
+
+                END-IF
+
+
+
+
+           END-PERFORM.
+      *Check if User have enought credit
+
+
+
+
 
            *> Send JSON Message depending on Status
            PERFORM SEND-JSON-RESPONSE.
@@ -274,7 +295,120 @@
 
            DISPLAY 'HEXA : ' WS-DISPLAY-HEX
            EXIT.
+
+
+      *==========================================================*
+      * CHECK-USER-CREDIT
+      * Checks if the user has enough credit to send SMS
+      * INPUT :  WS-RES-USERID
+      *          WS-RES-USERID-LEN
+      *==========================================================*
+       CHECK-USER-CREDIT.
+
+           *> Convertion UserID string to numeric
+           COMPUTE D-USER-ID = 
+               FUNCTION NUMVAL-C(WS-RES-USERID(1:WS-RES-USERID-LEN))
            
+           *> SQL Query
+           EXEC SQL
+               SELECT CREDIT_AMOUNT
+               INTO  :D-CREDIT-AMOUNT
+               FROM   ZSMS_USERS                
+               WHERE  USER_ID = :D-USER-ID
+           END-EXEC
+
+           *> Check SQL result
+           IF SQLCODE NOT = 0
+               MOVE SQLCODE TO WS-RESP-DISP
+               DISPLAY 'SQLCODE: ' WS-RESP-DISP
+               DISPLAY "SQL ERROR on ZSMS_USERS: " D-USER-ID
+               MOVE 16 TO WS-RESP 
+               PERFORM SEND-JSON-ERROR
+               EXEC CICS RETURN END-EXEC
+           END-IF
+
+           SUBTRACT 1 FROM D-CREDIT-AMOUNT.
+
+           *> Check if credit becomes negative
+           IF D-CREDIT-AMOUNT < 0
+               DISPLAY 'INSUFFICIENT CREDIT FOR: ' D-USER-ID
+               MOVE 20 TO WS-RESP
+               PERFORM SEND-JSON-ERROR
+               EXEC CICS RETURN END-EXEC
+           END-IF
+
+           *> If OK, update the credit in the table
+           EXEC SQL
+               UPDATE ZSMS_USERS
+               SET CREDIT_AMOUNT = :D-CREDIT-AMOUNT
+               WHERE USER_ID = :D-USER-ID
+           END-EXEC
+
+           *> Check if the SQL update was successful
+
+           IF SQLCODE NOT = 0                
+               DISPLAY "ERROR: CREDIT UPDATE FAILED FOR : " D-USER-ID                
+               MOVE 21 TO WS-RESP                
+               PERFORM SEND-JSON-ERROR                
+               EXEC CICS RETURN END-EXEC                
+           END-IF
+
+           EXIT.
+
+
+      *==========================================================*
+      * SAVE-SMS-HISTORY
+      * LOGS SENT SMS DATA, INCLUDING STATUS AND MESSAGES ID TO DB2
+      * INPUT  :  WS-SMS-TEL
+      *           WS-SMS-TXT (eq WS-RES-CONTENT)
+      *           WS-RES-CONTENT-LEN
+      *           WS-SMS-RET
+      *           WS-OUT-NBSMS
+      *           WS-OUT-MSGID
+      *==========================================================*
+
+       SAVE-SMS-HISTORY.
+
+                 *> Preparation data to DB2 access
+                 MOVE WS-SMS-TEL TO D-PHONE
+                 MOVE WS-SMS-RET TO D-STATUS        
+      
+                 IF WS-SMS-RET = 0 
+                    *> IF SMS IS SENDED
+                    COMPUTE D-NB-SMS = FUNCTION NUMVAL(WS-OUT-NBSMS)
+                    COMPUTE D-MSG-ID = FUNCTION NUMVAL(WS-OUT-MSGID)
+                 ELSE
+                    MOVE 0 TO D-NB-SMS
+                    MOVE 0 TO D-MSG-ID
+                 END-IF
+      
+                 *> Content VARCHAR management
+                 MOVE WS-SMS-TXT TO D-MSG-TEXT-DATA
+                 MOVE WS-RES-CONTENT-LEN TO D-MSG-TEXT-LEN
+      
+                 EXEC SQL
+                   INSERT INTO ZSMS_MESSAGES (
+                      MSG_ID,
+                      USER_ID,
+                      PHONE_NUM,
+                      MSG_TEXT,
+                      NB_SMS,
+                      STATUS
+                   ) VALUES (
+                      :D-MSG-ID,
+                      :D-USER-ID,
+                      :D-PHONE,
+                      :D-MSG-TEXT,
+                      :D-NB-SMS,
+                      :D-STATUS
+                   )
+                 END-EXEC
+      
+                 MOVE SQLCODE TO WS-RESP-DISP
+                 DISPLAY 'SQLCODE: ' WS-RESP-DISP
+
+           EXIT.
+
 
       *==========================================================*
       * SEND-JSON-ERROR

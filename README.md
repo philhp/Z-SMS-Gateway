@@ -136,12 +136,13 @@ To keep the source code provider-agnostic and secure, API credentials are never 
 ```
 
 ## Roadmap / TODO List
-- [ ] **Credit Deduction**: Automatically decrement user balance upon successful SMS delivery.
-- [ ] **Bulk Messaging**: Implement support for multi-recipient SMS sending in a single API call.
+- [X] **Credit Deduction**: Automatically decrement user balance upon successful SMS delivery.
+- [X] **Bulk Messaging**: Implement support for multi-recipient SMS sending in a single API call.
 - [ ] **Balance Top-up**: Extend the /balance endpoint to allow manual or automated credit additions
 - [ ] **Enhanced Tracking**: Integrate real-time delivery status (DLR) tracking within the /history endpoint.
 - [ ] **Contact Management**: Build a dedicated module for managing customer address books.
 - [ ] **Inbound SMS**: Develop a routine to capture and display incoming replies from customers (Two-way SMS).
 - [ ] **Authentication**: Implement API Key validation for enhanced security.
 - [ ] **Web Dashboard**: Create a simple web interface to visualize SMS history.
+- [ ] **Batch Integration**: Develop a JCL utility (IKJEFT01/BPXBATCH) to trigger SMS alerts based on Job Step Return Codes (RC).
 
