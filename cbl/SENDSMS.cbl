@@ -78,12 +78,14 @@
                   :PASSWORD:             DELIMITED BY SIZE
                   '&DA='                 DELIMITED BY SIZE
                   LS-MOB-PHONE           DELIMITED BY SPACE
-                  '&SOA=3095'            DELIMITED BY SIZE
+                  '&SOA='                DELIMITED BY SIZE
+                  :SOA:                  DELIMITED BY SIZE
                   '&MsgSubType=0'        DELIMITED BY SIZE
-                  '&SenderAppId=115'     DELIMITED BY SIZE
+                  '&SenderAppId='        DELIMITED BY SIZE
+                  :SENDERAPPID:          DELIMITED BY SIZE
                   '&Content='            DELIMITED BY SIZE
                   LS-CONTENT             DELIMITED BY SPACE
-                  '&Flags=0'             DELIMITED BY SIZE
+                  '&Flags=3'             DELIMITED BY SIZE
                   INTO WS-SMS-PATH
                   WITH POINTER WS-POINTEUR
            END-STRING

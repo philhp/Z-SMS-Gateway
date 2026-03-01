@@ -21,7 +21,6 @@
        01 WS-USERID-NAME        PIC X(10)  VALUE 'UserID'.
        01 WS-USERID-LEN         PIC S9(8)  COMP VALUE 6.
        01 WS-USERID-VAL         PIC X(10)  VALUE SPACES.
-       01 WS-VAL-LEN            PIC S9(8)  BINARY.
 
        01  WS-RESP              PIC S9(8) BINARY.
        01  WS-RESP-DISP         PIC 9(6). 
