@@ -73,8 +73,12 @@ To keep the source code provider-agnostic and secure, API credentials are never 
 
 ```cobol
            REPLACE ==:USERNAME:== BY =='YOUR_PROVIDER_USER'==
-                   ==:PASSWORD:== BY =='YOUR_PROVIDER_KEY'==.
+                   ==:PASSWORD:== BY =='YOUR_PROVIDER_KEY'==
+                   ==:SOA:== BY =='1299'==
+                   ==:SENDERAPPID:== BY =='93'==.
 ```
+SOA (Originating Address) :  is privided by your SMS provider
+SENDERAPPID (Sender Application ID) : is privided by your SMS provider
 
 ## Quick Start
 
@@ -91,6 +95,36 @@ To keep the source code provider-agnostic and secure, API credentials are never 
 "Combining the legendary reliability of the Mainframe with the flexibility of JSON to meet modern web requirements."
 
 
+## JCL Alerting Mechanism
+
+This JCL demonstrates how to automate SMS alerts based on job outcomes.
+
+**Step 1** (PRODSTEP) simulates a production workload.
+
+**Step 2** (IFCHECK) uses JCL conditional logic to monitor the previous step. If PRODSTEP fails with a Return Code greater than 4, it triggers the SENDSMS step.
+
+SENDSMS executes the SMSALERT REXX script to notify administrators.
+
+```jcl
+//IBMUSER JOB (ACCOUNT),'SMS ALERT',CLASS=A,MSGCLASS=X,NOTIFY=&SYSUID
+//*-------------------------------------------------------
+//* STEP 1: PRODUCTION JOB (Exemple)
+//*-------------------------------------------------------
+//PRODSTEP  EXEC PGM=IEFBR14
+//*
+//*-------------------------------------------------------
+//* STEP 2: ALERTE SMS IF STEP 1 FAILED (RC > 4)
+//*-------------------------------------------------------
+//IFCHECK   IF (PRODSTEP.RC > 4) THEN
+//SENDSMS   EXEC PGM=IKJEFT01
+//STEPLIB   DD DSN=TCPIP.SEZALOAD,DISP=SHR
+//SYSTSPRT  DD SYSOUT=*
+//SYSTSIN   DD *
+ EXEC 'IBMUSER.REXX(SMSALERT)' '61412345678 "JobFailed" 1'
+/*
+//ENDIF
+```
+
 ## 🔌 API Reference
 
 ### 1. Send SMS
@@ -99,6 +133,7 @@ To keep the source code provider-agnostic and secure, API credentials are never 
 **Parameters:**
 * `DA`: Destination Address (E.164 format).
 * `Content`: The text message to be sent.
+* `UserID`: integer value , User Identifiant (see ZSMS_USERS Table) .
 
 **Response (Success - HTTP 200):**
 ```json
@@ -139,10 +174,10 @@ To keep the source code provider-agnostic and secure, API credentials are never 
 - [X] **Credit Deduction**: Automatically decrement user balance upon successful SMS delivery.
 - [X] **Bulk Messaging**: Implement support for multi-recipient SMS sending in a single API call.
 - [X] **Enhanced Tracking**: Integrate real-time delivery status (DLR) tracking within the /history endpoint.
+- [X] **Batch Integration**: Develop a JCL utility (IKJEFT01/BPXBATCH) to trigger SMS alerts based on Job Step Return Codes (RC).
 - [ ] **Balance Top-up**: Extend the /balance endpoint to allow manual or automated credit additions
 - [ ] **Contact Management**: Build a dedicated module for managing customer address books.
 - [ ] **Inbound SMS**: Develop a routine to capture and display incoming replies from customers (Two-way SMS).
 - [ ] **Authentication**: Implement API Key validation for enhanced security.
 - [ ] **Web Dashboard**: Create a simple web interface to visualize SMS history.
-- [ ] **Batch Integration**: Develop a JCL utility (IKJEFT01/BPXBATCH) to trigger SMS alerts based on Job Step Return Codes (RC).
 
