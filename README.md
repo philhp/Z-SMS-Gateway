@@ -110,7 +110,7 @@ SENDSMS executes the SMSALERT REXX script to notify administrators.
 //*-------------------------------------------------------
 //* STEP 1: PRODUCTION JOB (Exemple)
 //*-------------------------------------------------------
-//PRODSTEP  EXEC PGM=IEFBR14
+//PRODSTEP  EXEC PGM=IDCAMS
 //*
 //*-------------------------------------------------------
 //* STEP 2: ALERTE SMS IF STEP 1 FAILED (RC > 4)
@@ -120,7 +120,7 @@ SENDSMS executes the SMSALERT REXX script to notify administrators.
 //STEPLIB   DD DSN=TCPIP.SEZALOAD,DISP=SHR
 //SYSTSPRT  DD SYSOUT=*
 //SYSTSIN   DD *
- EXEC 'IBMUSER.REXX(SMSALERT)' '61412345678 "JobFailed" 1'
+ EXEC 'IBMUSER.REXX(SMSALERT)' '61412345678 "Job IDCAMS failed. RC>4" 1'
 /*
 //ENDIF
 ```
