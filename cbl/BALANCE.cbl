@@ -19,11 +19,24 @@
        01  WS-PTR               PIC S9(9) BINARY VALUE 1.
 
        01 WS-USERID-NAME        PIC X(10)  VALUE 'UserID'.
-       01 WS-USERID-LEN         PIC S9(8)  COMP VALUE 6.
+       01 WS-USERID-NAME-LEN    PIC S9(8)  BINARY VALUE 6.       
+       01 WS-USERID-LEN         PIC S9(8)  BINARY VALUE 10.
        01 WS-USERID-VAL         PIC X(10)  VALUE SPACES.
+
+       01 WS-CREDIT-NAME        PIC X(6)   VALUE 'Credit'.
+       01 WS-CREDIT-NAME-LEN    PIC S9(8)  BINARY VALUE 6.       
+       01 WS-CREDIT-LEN         PIC S9(8)  BINARY VALUE 10.
+       01 WS-CREDIT-VAL         PIC X(10)  VALUE SPACES.
 
        01  WS-RESP              PIC S9(8) BINARY.
        01  WS-RESP-DISP         PIC 9(6). 
+
+       01  WS-RESP-USERID       PIC S9(8) BINARY.
+       01  WS-RESP-CREDIT       PIC S9(8) BINARY.
+
+       01 DB2-VARS.
+          05 D-USERID-VAL       PIC S9(9) BINARY VALUE 0.
+          05 D-CREDIT-VAL       PIC S9(9) BINARY VALUE 0.
 
        01  WS-NBSMS-DIS         PIC 9999.
 
@@ -31,11 +44,11 @@
 
        01  WS-I                 PIC 9(4) BINARY VALUE 0.
 
-
        01 DB2-VARS.
           05 D-USER-ID          PIC S9(9) BINARY VALUE 0.
           05 D-CREDIT-AMOUNT    PIC S9(9) BINARY.
 
+       01  WS-TEMP-EMAIL PIC X(10).
 
 
       * FOR SQL
@@ -45,14 +58,86 @@
        PROCEDURE DIVISION.
 
            EXEC CICS WEB READ FORMFIELD(WS-USERID-NAME)
-               NAMELENGTH(WS-USERID-LEN)
+               NAMELENGTH(WS-USERID-NAME-LEN)
                VALUE(WS-USERID-VAL)
                VALUELENGTH(WS-USERID-LEN)
                RESP(WS-RESP)
            END-EXEC.
+           MOVE WS-RESP TO WS-RESP-USERID
 
+           EXEC CICS WEB READ FORMFIELD(WS-CREDIT-NAME)
+               NAMELENGTH(WS-CREDIT-NAME-LEN)
+               VALUE(WS-CREDIT-VAL)
+               VALUELENGTH(WS-CREDIT-LEN)
+               RESP(WS-RESP)
+           END-EXEC.
+           MOVE WS-RESP TO WS-RESP-CREDIT 
 
-           IF WS-RESP NOT = DFHRESP(NORMAL)
+            IF WS-RESP-USERID = DFHRESP(NORMAL)
+              DISPLAY 'USERID : ' WS-USERID-VAL(1:WS-USERID-LEN)
+            END-IF 
+            IF WS-RESP-CREDIT = DFHRESP(NORMAL)
+              DISPLAY 'CREDIT : ' WS-CREDIT-VAL(1:WS-CREDIT-LEN)
+            END-IF 
+
+           IF WS-RESP-USERID = DFHRESP(NORMAL) AND 
+              WS-RESP-CREDIT = DFHRESP(NORMAL)
+              DISPLAY 'USERID AND CREDIT FOUND '
+
+              *> Verify that they are numeric
+              IF WS-USERID-VAL(1:WS-USERID-LEN) IS NUMERIC AND 
+                 WS-CREDIT-VAL(1:WS-CREDIT-LEN) IS NUMERIC
+
+                    DISPLAY 'UPDATING USERID: ' 
+                       WS-USERID-VAL(1:WS-USERID-LEN)
+                    DISPLAY 'WITH CREDIT: ' 
+                       WS-CREDIT-VAL(1:WS-CREDIT-LEN)
+
+                    EXEC SQL
+                     UPDATE ZSMS_USERS
+                     SET CREDIT_AMOUNT = CREDIT_AMOUNT + :WS-CREDIT-VAL
+                     WHERE USER_ID = :WS-USERID-VAL
+                    END-EXEC
+
+                    IF SQLCODE = 100
+                       *> USERID dont exist : create it
+                       MOVE 'UNKNOW' TO WS-TEMP-EMAIL
+                  EXEC SQL
+                INSERT INTO ZSMS_USERS 
+                (USER_ID, EMAIL, CREDIT_AMOUNT)
+                VALUES (:WS-USERID-VAL, :WS-TEMP-EMAIL, :WS-CREDIT-VAL)
+                  END-EXEC
+
+                    IF SQLCODE = 0
+                        DISPLAY 'User created'
+                    ELSE
+                        *> Dans votre procédure de log d'erreur :
+                       DISPLAY 'SQLCODE: ' SQLCODE
+                       DISPLAY 'SQLERRD(1): ' SQLERRD(1)
+                       DISPLAY 'SQLERRM: ' SQLERRM
+
+                    END-IF
+
+                    ELSE
+
+                    IF SQLCODE = 0
+                        DISPLAY 'Credit update successful'
+                    ELSE
+                        DISPLAY 'SQL Error: ' SQLCODE
+                    END-IF
+
+                    END-IF
+
+                    MOVE 0 TO WS-RESP
+                    PERFORM SEND-JSON-ERROR
+
+                    EXEC CICS RETURN END-EXEC  
+
+              END-IF   
+
+           END-IF   
+
+           IF WS-RESP-USERID NOT = DFHRESP(NORMAL)
                MOVE WS-RESP TO WS-RESP-DISP
                DISPLAY 'ERROR : CICS FORMFIELD : ' WS-RESP-DISP
 
