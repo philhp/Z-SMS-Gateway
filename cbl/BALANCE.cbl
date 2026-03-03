@@ -111,11 +111,7 @@
                     IF SQLCODE = 0
                         DISPLAY 'User created'
                     ELSE
-                        *> Dans votre procédure de log d'erreur :
                        DISPLAY 'SQLCODE: ' SQLCODE
-                       DISPLAY 'SQLERRD(1): ' SQLERRD(1)
-                       DISPLAY 'SQLERRM: ' SQLERRM
-
                     END-IF
 
                     ELSE
