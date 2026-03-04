@@ -52,7 +52,9 @@
           05 D-PHONE         PIC X(20).
           05 D-NB-SMS        PIC S9(9) BINARY.
           05 D-STATUS        PIC S9(9) BINARY.
-          05 D-CREDIT-AMOUNT PIC S9(9) BINARY.       
+          05 D-CREDIT-AMOUNT PIC S9(9) BINARY. 
+          05 D-TYPE          PIC X(2)  VALUE 'MT'. 
+             
           *> STRUCTURE POUR LE VARCHAR(1000)
           05 D-MSG-TEXT.
              49 D-MSG-TEXT-LEN  PIC S9(4) BINARY.
@@ -80,6 +82,8 @@
            05 WS-RES-CONTENT-LEN   PIC 9(05) VALUE 0.
            05 WS-RES-USERID        PIC X(10) VALUE SPACES.
            05 WS-RES-USERID-LEN    PIC 9(05) VALUE 0.
+           05 WS-RES-TYPE          PIC X(10) VALUE SPACES.
+           05 WS-RES-TYPE-LEN      PIC 9(05) VALUE 0.           
 
       * ASCII Table (ISO_8859-1)   
        01  WS-CONV-DATA.
@@ -187,10 +191,14 @@
                            MOVE WS-VALUE TO WS-RES-CONTENT
                            *> Payload calcul 
                            COMPUTE WS-RES-CONTENT-LEN = WS-KV-LEN - 8
-                    WHEN WS-KEY(1:7) = 'UserID'
+                    WHEN WS-KEY(1:6) = 'UserID'
                            MOVE WS-VALUE TO WS-RES-USERID
                            *> Payload calcul 
                            COMPUTE WS-RES-USERID-LEN = WS-KV-LEN - 7
+                    WHEN WS-KEY(1:4) = 'Type'
+                           MOVE WS-VALUE TO WS-RES-TYPE
+                           *> Payload calcul 
+                           COMPUTE WS-RES-TYPE-LEN = WS-KV-LEN - 5                    
                  END-EVALUATE
 
            END-PERFORM.
@@ -214,7 +222,27 @@
            DISPLAY 'WS-RES-CONTENT-LEN: ' WS-RES-CONTENT-LEN
            DISPLAY 'WS-RES-USERID-LEN: ' WS-RES-USERID-LEN
 
-      *Bulk messaging : multi-recipient SMS sending
+      *SMS-MO Management (MO : Mobile Originated)
+           IF WS-RES-TYPE(1:WS-RES-TYPE-LEN) = 'MO'
+
+               DISPLAY 'Inbound SMS-MO reception'
+
+               MOVE 1 TO WS-OUT-NBSMS
+               MOVE 0 TO WS-SMS-RET
+               MOVE WS-RES-DA(1:WS-RES-DA-LEN) TO WS-SMS-TEL
+               MOVE WS-RES-CONTENT(1:WS-RES-CONTENT-LEN) TO WS-SMS-TXT
+               MOVE 0 TO WS-OUT-MSGID
+               MOVE 'MO' TO D-TYPE
+               PERFORM SAVE-SMS-HISTORY
+
+               MOVE 0 TO WS-RESP 
+               PERFORM SEND-JSON-ERROR
+               EXEC CICS RETURN END-EXEC  
+
+           END-IF
+
+      *Bulk messaging : 
+      *SMS-MT Multi-recipient Sending (MT : Mobile Terminated)
            MOVE 1 TO WS-PTR-DA.
 
            PERFORM UNTIL WS-PTR-DA > WS-RES-DA-LEN
@@ -365,6 +393,7 @@
       *           WS-SMS-RET
       *           WS-OUT-NBSMS
       *           WS-OUT-MSGID
+      *           D-TYPE
       *==========================================================*
 
        SAVE-SMS-HISTORY.
@@ -391,6 +420,7 @@
                       MSG_ID,
                       USER_ID,
                       PHONE_NUM,
+                      TYPE,
                       MSG_TEXT,
                       NB_SMS,
                       STATUS
@@ -398,6 +428,7 @@
                       :D-MSG-ID,
                       :D-USER-ID,
                       :D-PHONE,
+                      :D-TYPE,
                       :D-MSG-TEXT,
                       :D-NB-SMS,
                       :D-STATUS

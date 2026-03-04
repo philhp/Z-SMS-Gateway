@@ -77,12 +77,18 @@
        01 WS-TRACKING-LEN      PIC S9(8)  BINARY VALUE 10.
        01 WS-TRACKING-VAL      PIC X(10)  VALUE SPACES.
 
+       01 WS-TYPE-NAME         PIC X(4)   VALUE 'Type'.
+       01 WS-TYPE-NAME-LEN     PIC S9(8)  BINARY VALUE 4.         
+       01 WS-TYPE-LEN          PIC S9(8)  BINARY VALUE 10.
+       01 WS-TYPE-VAL          PIC X(10)  VALUE SPACES.
+
        01  WS-RESP              PIC S9(8) BINARY.
        01  WS-RESP-DISP         PIC --------9. 
 
        01  WS-RESP-MSGID        PIC S9(8) BINARY.
        01  WS-RESP-TRACKING     PIC S9(8) BINARY.
        01  WS-RESP-USERID       PIC S9(8) BINARY.
+       01  WS-RESP-TYPE         PIC S9(8) BINARY.
 
        01  WS-NBSMS-DIS         PIC ZZZ9.
 
@@ -94,6 +100,8 @@
           05 D-MSG-ID       PIC S9(18) BINARY.
           05 D-PHONE        PIC X(20).
           05 D-NB-SMS       PIC S9(9) BINARY.
+          05 D-TYPE-MO      PIC X(2)  VALUE 'MO'. 
+          05 D-TYPE-MT      PIC X(2)  VALUE 'MT'.
           05 D-CREATED-AT   PIC X(26).
           05 D-TRACKING-ST  PIC X(5).
           *> STRUCTURE POUR LE VARCHAR(1000)
@@ -134,6 +142,14 @@
            END-EXEC.
            MOVE WS-RESP TO WS-RESP-USERID
 
+           EXEC CICS WEB READ FORMFIELD(WS-TYPE-NAME)
+               NAMELENGTH(WS-TYPE-NAME-LEN)
+               VALUE(WS-TYPE-VAL)
+               VALUELENGTH(WS-TYPE-LEN)
+               RESP(WS-RESP)
+           END-EXEC.
+           MOVE WS-RESP TO WS-RESP-TYPE 
+
             IF WS-RESP-MSGID = DFHRESP(NORMAL)
               DISPLAY 'MSGID : ' WS-MSGID-VAL(1:WS-MSGID-LEN)
             END-IF 
@@ -171,7 +187,7 @@
                         DISPLAY 'SQL Error: ' SQLCODE
                     END-IF
 
-                    MOVE 9 TO WS-RESP
+                    MOVE 0 TO WS-RESP
                     PERFORM SEND-JSON-ERROR
 
                     EXEC CICS RETURN END-EXEC  
@@ -193,11 +209,97 @@
            END-IF.
 
            DISPLAY 'WS-RES-USERID:' WS-USERID-VAL(1:WS-USERID-LEN)
-
-
-
            COMPUTE D-USER-ID = FUNCTION NUMVAL(WS-USERID-VAL)
 
+      * Show SMS history for UserID with Type = MO (Mobile Originated)
+           *> Type if Type=MO Request
+           IF WS-RESP-TYPE = DFHRESP(NORMAL)
+              IF WS-TYPE-VAL(1:WS-TYPE-LEN) = 'MO'
+
+              DISPLAY 'TYPE : MO '
+
+              EXEC SQL
+                    DECLARE C2 CURSOR FOR
+                    SELECT MSG_ID,   
+                           USER_ID, 
+                           PHONE_NUM, 
+                           MSG_TEXT, 
+                           NB_SMS, 
+                           CREATED_AT,
+                           TRACKING_ST
+                    FROM ZSMS_MESSAGES 
+                    WHERE USER_ID = :D-USER-ID AND TYPE = :D-TYPE-MO
+                    ORDER BY CREATED_AT DESC
+              END-EXEC
+      * -- 1. Opening the cursor
+              EXEC SQL OPEN C2 END-EXEC
+
+              MOVE 1 TO WS-PTR
+              *>Add caracter : [ + SPACE
+              STRING 
+                 WS-OPEN-BRACKET DELIMITED BY SIZE
+                 ' '             DELIMITED BY SIZE
+              INTO WS-JSON-RESPONSE 
+              WITH POINTER WS-PTR
+
+      * -- 2. Loop
+              PERFORM UNTIL SQLCODE NOT = 0
+               EXEC SQL
+                   FETCH C2 
+                   INTO :D-MSG-ID,
+                        :D-PHONE,
+                        :D-MSG-TEXT,
+                        :D-CREATED-AT
+               END-EXEC
+
+              IF SQLCODE = 0
+
+                  MOVE D-NB-SMS TO WS-NBSMS-DIS
+
+
+               STRING  
+                  '{ '                DELIMITED BY SIZE
+                  '"Phone": '         DELIMITED BY SIZE
+                  D-PHONE             DELIMITED BY SPACE
+                  ','                 DELIMITED BY SIZE
+                  
+                  '"Content": "'      DELIMITED BY SIZE
+                  D-MSG-TEXT-DATA(1:D-MSG-TEXT-LEN) DELIMITED BY SIZE
+                  '",'                DELIMITED BY SIZE
+                                                               
+                  '"Created": "'      DELIMITED BY SIZE
+                  D-CREATED-AT        DELIMITED BY SIZE
+                  '",'                DELIMITED BY SIZE
+                                        
+                  '},'                DELIMITED BY SIZE
+
+                  INTO WS-JSON-RESPONSE
+                  WITH POINTER WS-PTR
+               END-STRING
+
+              END-IF
+              END-PERFORM
+
+              *>remove last comma caracter  ","
+              SUBTRACT 1 FROM WS-PTR
+              *>Add final caracter : ]
+              STRING 
+                 ' '               DELIMITED BY SIZE
+                 WS-CLOSE-BRACKET  DELIMITED BY SIZE
+              INTO WS-JSON-RESPONSE 
+              WITH POINTER WS-PTR
+
+
+      * -- 3. Closing Cursor
+              EXEC SQL CLOSE C2 END-EXEC
+
+              PERFORM SEND-JSON-RESPONSE
+
+              EXEC CICS RETURN END-EXEC   
+              END-IF  
+           END-IF
+
+      * Show SMS history for UserID with Type = MT (Mobile Terminated)
 
            EXEC SQL
                  DECLARE C1 CURSOR FOR
@@ -209,7 +311,7 @@
                         CREATED_AT,
                         TRACKING_ST
                  FROM ZSMS_MESSAGES 
-                 WHERE USER_ID = :D-USER-ID
+                 WHERE USER_ID = :D-USER-ID AND TYPE = :D-TYPE-MT
                  ORDER BY CREATED_AT DESC
            END-EXEC.
 
@@ -217,7 +319,6 @@
            EXEC SQL OPEN C1 END-EXEC.
 
            MOVE 1 TO WS-PTR
-
            *>Add caracter : [ + SPACE
            STRING 
                  WS-OPEN-BRACKET DELIMITED BY SIZE
@@ -289,7 +390,6 @@
 
       * -- 3. Closing Cursor
            EXEC SQL CLOSE C1 END-EXEC.
-
 
            PERFORM SEND-JSON-RESPONSE
 
