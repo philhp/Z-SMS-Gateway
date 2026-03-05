@@ -17,8 +17,8 @@
        01  WS-RESP-VAL           PIC 9(08).
 
        
-       01  WS-BODY-BRUT          PIC X(2000).
-       01  WS-BODY-LEN           PIC S9(8) BINARY VALUE 2000.
+       01  WS-BODY-BRUT          PIC X(10000).
+       01  WS-BODY-LEN           PIC S9(8) BINARY VALUE 10000.
        01  WS-BODY-LEN-RECV      PIC S9(8) BINARY.
        01  WS-RESP               PIC S9(8) BINARY.
        01  WS-RESP-DISP          PIC --------9. 
@@ -76,7 +76,7 @@
            05 WS-KEY               PIC X(20) VALUE SPACES.
            05 WS-VALUE             PIC X(480) VALUE SPACES.
        01  WS-PARSING-RESULTS.
-           05 WS-RES-DA            PIC X(16000) VALUE SPACES.
+           05 WS-RES-DA            PIC X(10000) VALUE SPACES.
            05 WS-RES-DA-LEN        PIC 9(05) VALUE 0. 
            05 WS-RES-CONTENT       PIC X(500) VALUE SPACES.
            05 WS-RES-CONTENT-LEN   PIC 9(05) VALUE 0.

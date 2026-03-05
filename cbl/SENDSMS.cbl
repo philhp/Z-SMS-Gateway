@@ -17,7 +17,7 @@
        01  WS-RESP-LEN           PIC S9(8) BINARY VALUE 2000.
        01  WS-STATUSTEXT         PIC X(64).
 
-       01  WS-SMS-PATH          PIC X(250) VALUE SPACES.
+       01  WS-SMS-PATH          PIC X(1000) VALUE SPACES.
        01  WS-SMS-PATH-LEN      PIC S9(8) BINARY.
        01  WS-POINTEUR          PIC S9(8) BINARY VALUE 1.      
 
