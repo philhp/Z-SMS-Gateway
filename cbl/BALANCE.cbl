@@ -28,11 +28,29 @@
        01 WS-CREDIT-LEN         PIC S9(8)  BINARY VALUE 10.
        01 WS-CREDIT-VAL         PIC X(10)  VALUE SPACES.
 
+       01 WS-DELIVERED-NAME        PIC X(9)   VALUE 'Delivered'.
+       01 WS-DELIVERED-NAME-LEN    PIC S9(8)  BINARY VALUE 9.       
+       01 WS-DELIVERED-LEN         PIC S9(8)  BINARY VALUE 10.
+       01 WS-DELIVERED-VAL         PIC X(10)  VALUE SPACES.
+
+       01 WS-SENT-NAME        PIC X(4)   VALUE 'Sent'.
+       01 WS-SENT-NAME-LEN    PIC S9(8)  BINARY VALUE 4.       
+       01 WS-SENT-LEN         PIC S9(8)  BINARY VALUE 10.
+       01 WS-SENT-VAL         PIC X(10)  VALUE SPACES.
+
+       01 WS-MO-NAME        PIC X(2)   VALUE 'MO'.   
+       01 WS-MO-NAME-LEN    PIC S9(8)  BINARY VALUE 2.       
+       01 WS-MO-LEN         PIC S9(8)  BINARY VALUE 10.
+       01 WS-MO-VAL         PIC X(10)  VALUE SPACES.
+
        01  WS-RESP              PIC S9(8) BINARY.
        01  WS-RESP-DISP         PIC 9(6). 
 
        01  WS-RESP-USERID       PIC S9(8) BINARY.
        01  WS-RESP-CREDIT       PIC S9(8) BINARY.
+       01  WS-RESP-DELIVERED    PIC S9(8) BINARY.
+       01  WS-RESP-SENT         PIC S9(8) BINARY.
+       01  WS-RESP-MO         PIC S9(8) BINARY.
 
        01 DB2-VARS.
           05 D-USERID-VAL       PIC S9(9) BINARY VALUE 0.
@@ -41,12 +59,20 @@
        01  WS-NBSMS-DIS         PIC 9999.
 
        01  WS-AMOUNT-DISP       PIC ZZZZ9.
+       01  WS-DELIVERED-DISP    PIC ZZZZ9.
+       01  WS-SENT-DISP         PIC ZZZZ9.
+       01  WS-MO-DISP           PIC ZZZZ9.
 
        01  WS-I                 PIC 9(4) BINARY VALUE 0.
 
        01 DB2-VARS.
           05 D-USER-ID          PIC S9(9) BINARY VALUE 0.
           05 D-CREDIT-AMOUNT    PIC S9(9) BINARY.
+          05 D-DELIVERED-CNT    PIC S9(9) BINARY.
+          05 D-SENT-CNT         PIC S9(9) BINARY.
+          05 D-MO-CNT           PIC S9(9) BINARY.          
+          05 D-TYPE-MT          PIC X(2)  VALUE 'MT'.
+          05 D-STATUS-2000      PIC X(5)  VALUE '20000'.
 
        01  WS-TEMP-EMAIL PIC X(10).
 
@@ -72,6 +98,30 @@
                RESP(WS-RESP)
            END-EXEC.
            MOVE WS-RESP TO WS-RESP-CREDIT 
+
+           EXEC CICS WEB READ FORMFIELD(WS-DELIVERED-NAME)
+               NAMELENGTH(WS-DELIVERED-NAME-LEN)
+               VALUE(WS-DELIVERED-VAL)
+               VALUELENGTH(WS-DELIVERED-LEN)
+               RESP(WS-RESP)
+           END-EXEC.
+           MOVE WS-RESP TO WS-RESP-DELIVERED 
+
+           EXEC CICS WEB READ FORMFIELD(WS-SENT-NAME)
+               NAMELENGTH(WS-SENT-NAME-LEN)
+               VALUE(WS-SENT-VAL)
+               VALUELENGTH(WS-SENT-LEN)
+               RESP(WS-RESP)
+           END-EXEC.
+           MOVE WS-RESP TO WS-RESP-SENT 
+
+           EXEC CICS WEB READ FORMFIELD(WS-MO-NAME)
+               NAMELENGTH(WS-MO-NAME-LEN)
+               VALUE(WS-MO-VAL)
+               VALUELENGTH(WS-MO-LEN)
+               RESP(WS-RESP)
+           END-EXEC.
+           MOVE WS-RESP TO WS-RESP-MO 
 
             IF WS-RESP-USERID = DFHRESP(NORMAL)
               DISPLAY 'USERID : ' WS-USERID-VAL(1:WS-USERID-LEN)
@@ -144,9 +194,162 @@
 
            DISPLAY 'BALANCE FOR USERID:' WS-USERID-VAL(1:WS-USERID-LEN)
 
-
-
            COMPUTE D-USER-ID = FUNCTION NUMVAL(WS-USERID-VAL)
+
+           MOVE 0 TO WS-DELIVERED-DISP 
+           MOVE 0 TO WS-SENT-DISP 
+           MOVE 0 TO WS-MO-DISP  
+
+      * Delivered statistic for UserID
+           IF WS-RESP-DELIVERED = DFHRESP(NORMAL)
+
+                EXEC SQL
+                    SELECT COUNT(*)
+                    INTO  :D-DELIVERED-CNT
+                    FROM   ZSMS_MESSAGES 
+                    WHERE  TYPE        = :D-TYPE-MT
+                    AND    TRACKING_ST = :D-STATUS-2000 
+                    AND    USER_ID     = :D-USER-ID
+                  END-EXEC
+              
+                  IF SQLCODE = 0
+                    DISPLAY 'D-DELIVERED-CNT: ' D-DELIVERED-CNT
+                    MOVE D-DELIVERED-CNT TO WS-DELIVERED-DISP
+                  END-IF
+
+                MOVE 1 TO WS-PTR
+      
+                *>Add caracter : [ + SPACE
+                STRING 
+                       WS-OPEN-BRACKET DELIMITED BY SIZE
+                       ' '             DELIMITED BY SIZE
+                INTO WS-JSON-RESPONSE 
+                WITH POINTER WS-PTR
+
+                STRING  WS-NL          DELIMITED BY SIZE
+                  '{ '                DELIMITED BY SIZE
+                  '"Delivered": '     DELIMITED BY SIZE
+                  WS-DELIVERED-DISP   DELIMITED BY SIZE        
+                  WS-NL               DELIMITED BY SIZE                  
+                  '},'                DELIMITED BY SIZE
+                  INTO WS-JSON-RESPONSE
+                  WITH POINTER WS-PTR
+                END-STRING
+
+                *>remove last comma caracter  ","
+                SUBTRACT 1 FROM WS-PTR
+                *>Add final caracter : ]
+                STRING 
+                    WS-NL DELIMITED BY SIZE
+                    WS-CLOSE-BRACKET DELIMITED BY SIZE
+                INTO WS-JSON-RESPONSE 
+                WITH POINTER WS-PTR
+      
+                PERFORM SEND-JSON-RESPONSE
+
+                EXEC CICS RETURN END-EXEC       
+           END-IF
+
+      * SMS Sent statistic for UserID
+           IF WS-RESP-SENT = DFHRESP(NORMAL)
+
+                EXEC SQL
+                    SELECT COUNT(*)
+                    INTO  :D-SENT-CNT
+                    FROM   ZSMS_MESSAGES 
+                    WHERE  TYPE        = :D-TYPE-MT
+                    AND    USER_ID     = :D-USER-ID
+                  END-EXEC
+              
+                  IF SQLCODE = 0
+                    DISPLAY 'D-SENT-CNT: ' D-SENT-CNT
+                    MOVE D-SENT-CNT TO WS-SENT-DISP
+                  END-IF
+
+                MOVE 1 TO WS-PTR
+      
+                *>Add caracter : [ + SPACE
+                STRING 
+                       WS-OPEN-BRACKET DELIMITED BY SIZE
+                       ' '             DELIMITED BY SIZE
+                INTO WS-JSON-RESPONSE 
+                WITH POINTER WS-PTR
+
+                STRING  WS-NL         DELIMITED BY SIZE
+                  '{ '                DELIMITED BY SIZE
+                  '"Sent": '          DELIMITED BY SIZE
+                  WS-SENT-DISP        DELIMITED BY SIZE        
+                  WS-NL               DELIMITED BY SIZE                  
+                  '},'                DELIMITED BY SIZE
+                  INTO WS-JSON-RESPONSE
+                  WITH POINTER WS-PTR
+                END-STRING
+
+                *>remove last comma caracter  ","
+                SUBTRACT 1 FROM WS-PTR
+                *>Add final caracter : ]
+                STRING 
+                    WS-NL DELIMITED BY SIZE
+                    WS-CLOSE-BRACKET DELIMITED BY SIZE
+                INTO WS-JSON-RESPONSE 
+                WITH POINTER WS-PTR
+      
+                PERFORM SEND-JSON-RESPONSE
+
+                EXEC CICS RETURN END-EXEC       
+           END-IF
+
+      * SMS MO (Mobile Originated) statistic for UserID
+           IF WS-RESP-MO = DFHRESP(NORMAL)
+
+                EXEC SQL
+                    SELECT COUNT(*)
+                    INTO  :D-MO-CNT
+                    FROM   ZSMS_MESSAGES 
+                    WHERE  TYPE        = :WS-MO-NAME
+                    AND    USER_ID     = :D-USER-ID
+                  END-EXEC
+              
+                  IF SQLCODE = 0
+                    DISPLAY 'D-MO-CNT: ' D-MO-CNT
+                    MOVE D-MO-CNT TO WS-MO-DISP
+                  END-IF
+
+                MOVE 1 TO WS-PTR
+      
+                *>Add caracter : [ + SPACE
+                STRING 
+                       WS-OPEN-BRACKET DELIMITED BY SIZE
+                       ' '             DELIMITED BY SIZE
+                INTO WS-JSON-RESPONSE 
+                WITH POINTER WS-PTR
+
+                STRING  WS-NL         DELIMITED BY SIZE
+                  '{ '                DELIMITED BY SIZE
+                  '"MO": '            DELIMITED BY SIZE
+                  WS-MO-DISP          DELIMITED BY SIZE        
+                  WS-NL               DELIMITED BY SIZE                  
+                  '},'                DELIMITED BY SIZE
+                  INTO WS-JSON-RESPONSE
+                  WITH POINTER WS-PTR
+                END-STRING
+
+                *>remove last comma caracter  ","
+                SUBTRACT 1 FROM WS-PTR
+                *>Add final caracter : ]
+                STRING 
+                    WS-NL DELIMITED BY SIZE
+                    WS-CLOSE-BRACKET DELIMITED BY SIZE
+                INTO WS-JSON-RESPONSE 
+                WITH POINTER WS-PTR
+      
+                PERFORM SEND-JSON-RESPONSE
+
+                EXEC CICS RETURN END-EXEC       
+           END-IF
+
+
+           
            
            EXEC SQL
                  DECLARE C1 CURSOR FOR
