@@ -58,7 +58,7 @@
        01  WS-STATUSTXT PIC X(32) VALUE SPACES.
 
 
-       01  WS-JSON-RESPONSE     PIC X(5000) VALUE SPACES.
+       01  WS-JSON-RESPONSE     PIC X(20000) VALUE SPACES.
        01  WS-JSON-LEN          PIC 9(04)   BINARY.
        01  WS-PTR               PIC S9(9)   BINARY VALUE 1.
 
@@ -220,16 +220,14 @@
 
               EXEC SQL
                     DECLARE C2 CURSOR FOR
-                    SELECT MSG_ID,   
-                           USER_ID, 
+                    SELECT      
                            PHONE_NUM, 
                            MSG_TEXT, 
-                           NB_SMS, 
-                           CREATED_AT,
-                           TRACKING_ST
+                           CREATED_AT
                     FROM ZSMS_MESSAGES 
                     WHERE USER_ID = :D-USER-ID AND TYPE = :D-TYPE-MO
                     ORDER BY CREATED_AT DESC
+                    FETCH FIRST 100 ROWS ONLY
               END-EXEC
       * -- 1. Opening the cursor
               EXEC SQL OPEN C2 END-EXEC
@@ -246,7 +244,7 @@
               PERFORM UNTIL SQLCODE NOT = 0
                EXEC SQL
                    FETCH C2 
-                   INTO :D-MSG-ID,
+                   INTO 
                         :D-PHONE,
                         :D-MSG-TEXT,
                         :D-CREATED-AT
@@ -269,7 +267,7 @@
                                                                
                   '"Created": "'      DELIMITED BY SIZE
                   D-CREATED-AT        DELIMITED BY SIZE
-                  '",'                DELIMITED BY SIZE
+                  '"'                 DELIMITED BY SIZE
                                         
                   '},'                DELIMITED BY SIZE
 
@@ -313,6 +311,7 @@
                  FROM ZSMS_MESSAGES 
                  WHERE USER_ID = :D-USER-ID AND TYPE = :D-TYPE-MT
                  ORDER BY CREATED_AT DESC
+                 FETCH FIRST 100 ROWS ONLY
            END-EXEC.
 
       * -- 1. Opening the cursor
