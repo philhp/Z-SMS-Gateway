@@ -28,6 +28,11 @@
        01 WS-CREDIT-LEN         PIC S9(8)  BINARY VALUE 10.
        01 WS-CREDIT-VAL         PIC X(10)  VALUE SPACES.
 
+       01 WS-EMAIL-NAME        PIC X(5)   VALUE 'Email'.
+       01 WS-EMAIL-NAME-LEN    PIC S9(8)  BINARY VALUE 5.       
+       01 WS-EMAIL-LEN         PIC S9(8)  BINARY VALUE 50.
+       01 WS-EMAIL-VAL         PIC X(50)  VALUE SPACES.
+
        01 WS-DELIVERED-NAME        PIC X(9)   VALUE 'Delivered'.
        01 WS-DELIVERED-NAME-LEN    PIC S9(8)  BINARY VALUE 9.       
        01 WS-DELIVERED-LEN         PIC S9(8)  BINARY VALUE 10.
@@ -48,6 +53,7 @@
 
        01  WS-RESP-USERID       PIC S9(8) BINARY.
        01  WS-RESP-CREDIT       PIC S9(8) BINARY.
+       01  WS-RESP-EMAIL        PIC S9(8) BINARY.       
        01  WS-RESP-DELIVERED    PIC S9(8) BINARY.
        01  WS-RESP-SENT         PIC S9(8) BINARY.
        01  WS-RESP-MO         PIC S9(8) BINARY.
@@ -74,7 +80,7 @@
           05 D-TYPE-MT          PIC X(2)  VALUE 'MT'.
           05 D-STATUS-2000      PIC X(5)  VALUE '20000'.
 
-       01  WS-TEMP-EMAIL PIC X(10).
+       01  WS-TEMP-EMAIL PIC X(50).
 
 
       * FOR SQL
@@ -98,6 +104,14 @@
                RESP(WS-RESP)
            END-EXEC.
            MOVE WS-RESP TO WS-RESP-CREDIT 
+
+           EXEC CICS WEB READ FORMFIELD(WS-EMAIL-NAME)
+               NAMELENGTH(WS-EMAIL-NAME-LEN)
+               VALUE(WS-EMAIL-VAL)
+               VALUELENGTH(WS-EMAIL-LEN)
+               RESP(WS-RESP)
+           END-EXEC.
+           MOVE WS-RESP TO WS-RESP-EMAIL  
 
            EXEC CICS WEB READ FORMFIELD(WS-DELIVERED-NAME)
                NAMELENGTH(WS-DELIVERED-NAME-LEN)
@@ -152,6 +166,12 @@
                     IF SQLCODE = 100
                        *> USERID dont exist : create it
                        MOVE 'UNKNOW' TO WS-TEMP-EMAIL
+
+                       *> Check if EMAIL 
+                      IF WS-RESP-EMAIL = DFHRESP(NORMAL)
+                      MOVE WS-EMAIL-VAL(1:WS-EMAIL-LEN) TO WS-TEMP-EMAIL
+                      END-IF
+
                   EXEC SQL
                 INSERT INTO ZSMS_USERS 
                 (USER_ID, EMAIL, CREDIT_AMOUNT)
@@ -165,6 +185,7 @@
                     END-IF
 
                     ELSE
+                       *> USERID exist : update credit
 
                     IF SQLCODE = 0
                         DISPLAY 'Credit update successful'

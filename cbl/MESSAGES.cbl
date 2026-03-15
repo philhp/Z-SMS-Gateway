@@ -227,9 +227,28 @@
 
                DISPLAY 'Inbound SMS-MO reception'
 
+               MOVE WS-RES-DA(1:WS-RES-DA-LEN) TO WS-SMS-TEL
+
+               *> Défault UserID = 0  
+               MOVE 0 TO D-USER-ID
+      * Find the UserID associated with the last sent MT-SMS.
+               EXEC SQL
+                    SELECT USER_ID
+                    INTO   :D-USER-ID
+                    FROM   ZSMS_MESSAGES 
+                    WHERE  PHONE_NUM     = :WS-SMS-TEL
+                    ORDER BY CREATED_AT DESC
+                    FETCH FIRST 1 ROW ONLY
+               END-EXEC
+
+                  IF SQLCODE = 0
+                    DISPLAY 'D-USER-ID: ' D-USER-ID
+                  END-IF
+
+
+
                MOVE 1 TO WS-OUT-NBSMS
                MOVE 0 TO WS-SMS-RET
-               MOVE WS-RES-DA(1:WS-RES-DA-LEN) TO WS-SMS-TEL
                MOVE WS-RES-CONTENT(1:WS-RES-CONTENT-LEN) TO WS-SMS-TXT
                MOVE 0 TO WS-OUT-MSGID
                MOVE 'MO' TO D-TYPE
