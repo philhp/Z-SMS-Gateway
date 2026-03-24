@@ -14,10 +14,12 @@
 
        01 WS-STATUSTXT PIC X(32) VALUE SPACES.
 
+      * --- JSON Construction Buffers ---
        01  WS-JSON-RESPONSE     PIC X(1000) VALUE SPACES.
        01  WS-JSON-LEN          PIC 9(04) BINARY.
        01  WS-PTR               PIC S9(9) BINARY VALUE 1.
 
+      * --- Web Form Fields (Mapping GET/POST parameters) ---
        01 WS-USERID-NAME        PIC X(10)  VALUE 'UserID'.
        01 WS-USERID-NAME-LEN    PIC S9(8)  BINARY VALUE 6.       
        01 WS-USERID-LEN         PIC S9(8)  BINARY VALUE 10.
@@ -48,6 +50,7 @@
        01 WS-MO-LEN         PIC S9(8)  BINARY VALUE 10.
        01 WS-MO-VAL         PIC X(10)  VALUE SPACES.
 
+      * --- Response Status Codes ---
        01  WS-RESP              PIC S9(8) BINARY.
        01  WS-RESP-DISP         PIC 9(6). 
 
@@ -58,6 +61,7 @@
        01  WS-RESP-SENT         PIC S9(8) BINARY.
        01  WS-RESP-MO         PIC S9(8) BINARY.
 
+      * --- DB2 Host Variables ---
        01 DB2-VARS.
           05 D-USERID-VAL       PIC S9(9) BINARY VALUE 0.
           05 D-CREDIT-VAL       PIC S9(9) BINARY VALUE 0.
@@ -89,6 +93,7 @@
        EXEC SQL INCLUDE SQLCA END-EXEC.
        PROCEDURE DIVISION.
 
+      *--- EXTRACT DATA FROM HTTP FORM FIELDS ---
            EXEC CICS WEB READ FORMFIELD(WS-USERID-NAME)
                NAMELENGTH(WS-USERID-NAME-LEN)
                VALUE(WS-USERID-VAL)
@@ -137,6 +142,7 @@
            END-EXEC.
            MOVE WS-RESP TO WS-RESP-MO 
 
+      *--- PROCESS CREDIT UPDATE (If UserID and Credit are provided) ---
             IF WS-RESP-USERID = DFHRESP(NORMAL)
               DISPLAY 'USERID : ' WS-USERID-VAL(1:WS-USERID-LEN)
             END-IF 

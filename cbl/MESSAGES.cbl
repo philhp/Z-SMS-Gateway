@@ -253,8 +253,9 @@
                MOVE 0 TO WS-OUT-MSGID
                MOVE 'MO' TO D-TYPE
                PERFORM SAVE-SMS-HISTORY
-
-               MOVE 0 TO WS-RESP 
+               
+              *> Return UserID for SMS_MO management
+               MOVE D-USER-ID TO WS-RESP 
                PERFORM SEND-JSON-ERROR
                EXEC CICS RETURN END-EXEC  
 
